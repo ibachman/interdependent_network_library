@@ -1,0 +1,57 @@
+import igraph
+import csv
+
+
+def set_graph_from_csv(csv_file,graph=None):
+    if graph is None:
+        rename_map = {}
+        k = 0
+        names_list = []
+        with open(csv_file, 'rb') as csvfile:
+            reader = csv.reader(csvfile, delimiter=',', quotechar=',')
+            edge_list = []
+            for row in reader:
+                first = row[0]
+                second = row[1]
+                if first not in rename_map:
+                    rename_map[first] = k
+                    k += 1
+                    names_list.append(first)
+                if second not in rename_map:
+                    rename_map[second] = k
+                    k += 1
+                    names_list.append(second)
+                edge_list.append((rename_map[first], rename_map[second]))
+        number_of_nodes = len(rename_map)
+        graph = igraph.Graph()
+        graph.add_vertices(number_of_nodes)
+        graph.vs['name'] = names_list
+        graph.add_edges(edge_list)
+    else:
+        with open(csv_file, 'rb') as csvfile:
+            reader = csv.reader(csvfile, delimiter=',', quotechar=',')
+            for row in reader:
+                first = row[0]
+                second = row[1]
+                graph.add_edge(graph.vs.find(name=first),graph.vs.find(name=second))
+    return graph
+
+
+class InterdependentGraph(object):
+
+    def __init__(self, net_A_csv, net_B_csv, interactions_csv):
+        # Create graph A from csv file
+        self.network_A = set_graph_from_csv(net_A_csv)
+        # Create graph B from csv file
+        self.network_B = set_graph_from_csv(net_B_csv)
+        # Create interactions graph from csv file. This contains the nodes of both networks
+        self.interactions_network = igraph.Graph
+        for node_name in self.network_A.vs['name']:
+            self.interactions_network.add_vertex(name=node_name)
+        for node_name in self.network_B.vs['name']:
+            self.interactions_network.add_vertex(name=node_name)
+        self.interactions_network = set_graph_from_csv(interactions_csv,graph=self.interactions_network)
+
+    def attack_nodes(self,list_of_nodes):
+        pass
+
