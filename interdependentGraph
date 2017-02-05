@@ -33,11 +33,17 @@ def set_graph_from_csv(csv_file,graph=None):
             for row in reader:
                 first = row[0]
                 second = row[1]
-                graph.add_edge(graph.vs.find(name=first),graph.vs.find(name=second))
+                graph.add_edge(first,second)
     return graph
 
 
 class InterdependentGraph(object):
+    
+    # TODO: look for a more python-esque way of having multiple constructors
+    def __init__(self,graph_A, graph_B, interactions_graph):
+        self.network_A = graph_A
+        self.network_B = graph_B
+        self.interactions_network = interactions_graph
 
     def __init__(self, net_A_csv, net_B_csv, interactions_csv):
         # Create graph A from csv file
@@ -51,7 +57,46 @@ class InterdependentGraph(object):
         for node_name in self.network_B.vs['name']:
             self.interactions_network.add_vertex(name=node_name)
         self.interactions_network = set_graph_from_csv(interactions_csv,graph=self.interactions_network)
+        list_of_nodes_to_delete = [a[1] for a in zip(self.interactions_network.degree(),self.interactions_network['name'])
+                             if a[0] < 1]
+        self.interactions_network.delete_vertices(list_of_nodes_to_delete)
 
-    def attack_nodes(self,list_of_nodes):
-        pass
+    def attack_nodes(self,provider_node,list_of_nodes_to_delete):
+        current_graph_A = self.network_A
+        current_graph_B = self.network_B
+        current_interaction_graph = self.interactions_network
+
+        while True:
+            if len(list_of_nodes_to_delete) == 0:
+                break
+            nodes_to_delete_in_A = [node for node in list_of_nodes_to_delete if node in current_graph_A.vs['name']]
+            nodes_to_delete_in_B = [node for node in list_of_nodes_to_delete if node in current_graph_B.vs['name']]
+            current_graph_A.delete_vertices(nodes_to_delete_in_A)
+            current_graph_B.delete_vertices(nodes_to_delete_in_B)
+            current_interaction_graph.delete_vertices(list_of_nodes_to_delete)
+
+            length_to_provider_in_network_A = current_graph_A.shortest_paths(provider_node)[0]
+            zipped_list_A = zip(length_to_provider_in_network_A,range(len(current_graph_A)))
+            nodes_without_connection_to_provider_in_A = [a[1] for a in zipped_list_A if not a[0]==float('inf')]
+
+            length_to_provider_in_network_B = current_graph_B.shortest_paths(provider_node)[0]
+            zipped_list_B = zip(length_to_provider_in_network_B,range(len(current_graph_B)))
+            nodes_without_connection_to_provider_in_B = [a[1] for a in zipped_list_B if not a[0]==float('inf')]
+
+            current_graph_A.delete_vertices(nodes_without_connection_to_provider_in_A)
+            current_graph_B.delete_vertices(nodes_without_connection_to_provider_in_B)
+            current_interaction_graph.delete_vertices(nodes_without_connection_to_provider_in_A+
+                                                      nodes_without_connection_to_provider_in_B)
+
+            zipped_list_interactions = zip(current_interaction_graph.degree(),current_interaction_graph['name'])
+            list_of_nodes_to_delete = [a[1] for a in zipped_list_interactions if a[0] < 1]
+
+        return InterdependentGraph(current_graph_A,current_graph_B,current_interaction_graph)
+
+
+
+
+
+
+
 
