@@ -43,20 +43,13 @@ class InterdependentGraph(object):
         pass
 
     def create_from_csv(self,AS_net_csv, AS_provider_nodes, physical_net_csv, physical_provider_nodes,interactions_csv):
-        # Create graph A from csv file
+        # Create AS graph from csv file
         self.AS_network = set_graph_from_csv(AS_net_csv)
-        # Create graph B from csv file
+        # Create physical graph from csv file
         self.physical_network = set_graph_from_csv(physical_net_csv)
         # Create interactions graph from csv file. This contains the nodes of both networks
         self.interactions_network = igraph.Graph
-        # for node_name in self.AS_network.vs['name']:
-        #     self.interactions_network.add_vertex(node_name)
-        # for node_name in self.physical_network.vs['name']:
-        #     self.interactions_network.add_vertex(node_name)
-        self.interactions_network = set_graph_from_csv(interactions_csv)#,graph=self.interactions_network)
-        #list_of_nodes_to_delete = \
-        #    [a[1] for a in zip(self.interactions_network.degree(),self.interactions_network['name']) if a[0] < 1]
-        #self.interactions_network.delete_vertices(list_of_nodes_to_delete)
+        self.interactions_network = set_graph_from_csv(interactions_csv)
         as_net_name_list = self.AS_network.vs['name']
         physical_net_name_list = self.physical_network.vs['name']
         type_list = []
@@ -75,11 +68,26 @@ class InterdependentGraph(object):
         return self
 
     def create_from_graph(self,AS_graph, AS_provider_nodes, physical_graph,physical_provider_nodes, interactions_graph):
+        # save AS graph
         self.AS_network = AS_graph
+        # save physical graph
         self.physical_network = physical_graph
+        # prepare and save interactions graph
         self.interactions_network = interactions_graph
+        as_net_name_list = self.AS_network.vs['name']
+        physical_net_name_list = self.physical_network.vs['name']
+        type_list = []
+        for node in self.interactions_network.vs:
+            if node['name'] in as_net_name_list:
+                type_list.append(0)
+            elif node['name'] in physical_net_name_list:
+                type_list.append(1)
+        # save provider nodes
         self.AS_providers = AS_provider_nodes
         self.physical_providers = physical_provider_nodes
+        # save initial set of functional nodes
+        self.initial_number_of_functional_nodes_in_AS_net = \
+            len([a for a in self.AS_network.vs if self.AS_network.degree(a.index) > 0])
         return self
 
     def attack_nodes(self,list_of_nodes_to_delete):
