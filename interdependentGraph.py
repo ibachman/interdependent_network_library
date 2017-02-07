@@ -57,8 +57,6 @@ class InterdependentGraph(object):
         #list_of_nodes_to_delete = \
         #    [a[1] for a in zip(self.interactions_network.degree(),self.interactions_network['name']) if a[0] < 1]
         #self.interactions_network.delete_vertices(list_of_nodes_to_delete)
-
-
         as_net_name_list = self.AS_network.vs['name']
         physical_net_name_list = self.physical_network.vs['name']
         type_list = []
