@@ -105,7 +105,10 @@ class InterdependentGraph(object):
             current_interaction_graph.delete_vertices([n for n in list_of_nodes_to_delete if n in current_interaction_graph.vs['name']])
 
             nodes_without_connection_to_provider_in_A = set(range(len(current_graph_A.vs)))
+            alive_nodes_in_A = current_graph_A.vs['name']
             for provider_node in self.AS_providers:
+                if provider_node not in alive_nodes_in_A:
+                    continue
                 length_to_provider_in_network_A = current_graph_A.shortest_paths(provider_node)[0]
                 zipped_list_A = zip(length_to_provider_in_network_A,range(len(current_graph_A.vs)))
                 current_nodes_without_connection_to_provider_in_A = \
@@ -116,7 +119,11 @@ class InterdependentGraph(object):
 
 
             nodes_without_connection_to_provider_in_B = set(range(len(current_graph_B.vs)))
+            alive_nodes_in_B = current_graph_B.vs['name']
             for provider_node in self.physical_providers:
+                if provider_node not in alive_nodes_in_B:
+                    continue
+                print provider_node, "is alive"
                 length_to_provider_in_network_B = current_graph_B.shortest_paths(provider_node)[0]
                 zipped_list_B = zip(length_to_provider_in_network_B,range(len(current_graph_B.vs)))
                 current_nodes_without_connection_to_provider_in_B = \
