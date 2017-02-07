@@ -39,7 +39,6 @@ def set_graph_from_csv(csv_file,graph=None):
 
 class InterdependentGraph(object):
 
-    # TODO: look for a more python-esque way of having multiple constructors
     def __init__(self):
         pass
 
@@ -50,17 +49,29 @@ class InterdependentGraph(object):
         self.physical_network = set_graph_from_csv(physical_net_csv)
         # Create interactions graph from csv file. This contains the nodes of both networks
         self.interactions_network = igraph.Graph
-        for node_name in self.AS_network.vs['name']:
-            self.interactions_network.add_vertex(name=node_name)
-        for node_name in self.physical_network.vs['name']:
-            self.interactions_network.add_vertex(name=node_name)
-        self.interactions_network = set_graph_from_csv(interactions_csv,graph=self.interactions_network)
-        list_of_nodes_to_delete = \
-            [a[1] for a in zip(self.interactions_network.degree(),self.interactions_network['name']) if a[0] < 1]
-        self.interactions_network.delete_vertices(list_of_nodes_to_delete)
+        # for node_name in self.AS_network.vs['name']:
+        #     self.interactions_network.add_vertex(node_name)
+        # for node_name in self.physical_network.vs['name']:
+        #     self.interactions_network.add_vertex(node_name)
+        self.interactions_network = set_graph_from_csv(interactions_csv)#,graph=self.interactions_network)
+        #list_of_nodes_to_delete = \
+        #    [a[1] for a in zip(self.interactions_network.degree(),self.interactions_network['name']) if a[0] < 1]
+        #self.interactions_network.delete_vertices(list_of_nodes_to_delete)
 
+
+        as_net_name_list = self.AS_network.vs['name']
+        physical_net_name_list = self.physical_network.vs['name']
+        type_list = []
+        for node in self.interactions_network.vs:
+            if node['name'] in as_net_name_list:
+                type_list.append(0)
+            elif node['name'] in physical_net_name_list:
+                type_list.append(1)
+        self.interactions_network.vs['type'] = type_list
+        # save provider nodes
         self.AS_providers = AS_provider_nodes
         self.physical_providers = physical_provider_nodes
+        # save initial set of functional nodes
         self.initial_number_of_functional_nodes_in_AS_net = \
             len([a for a in self.AS_network.vs if self.AS_network.degree(a.index) > 0])
         return self
@@ -85,35 +96,37 @@ class InterdependentGraph(object):
             nodes_to_delete_in_B = [node for node in list_of_nodes_to_delete if node in current_graph_B.vs['name']]
             current_graph_A.delete_vertices(nodes_to_delete_in_A)
             current_graph_B.delete_vertices(nodes_to_delete_in_B)
-            current_interaction_graph.delete_vertices(list_of_nodes_to_delete)
+            current_interaction_graph.delete_vertices([n for n in list_of_nodes_to_delete if n in current_interaction_graph.vs['name']])
 
-            nodes_without_connection_to_provider_in_A = set(range(len(current_graph_A)))
+            nodes_without_connection_to_provider_in_A = set(range(len(current_graph_A.vs)))
             for provider_node in self.AS_providers:
                 length_to_provider_in_network_A = current_graph_A.shortest_paths(provider_node)[0]
-                zipped_list_A = zip(length_to_provider_in_network_A,range(len(current_graph_A)))
+                zipped_list_A = zip(length_to_provider_in_network_A,range(len(current_graph_A.vs)))
                 current_nodes_without_connection_to_provider_in_A = \
-                    set([a[1] for a in zipped_list_A if not a[0]==float('inf')])
+                    set([a[1] for a in zipped_list_A if a[0]==float('inf')])
                 nodes_without_connection_to_provider_in_A = \
                     nodes_without_connection_to_provider_in_A\
                         .intersection(current_nodes_without_connection_to_provider_in_A)
 
 
-            nodes_without_connection_to_provider_in_B = set(range(len(current_graph_B)))
+            nodes_without_connection_to_provider_in_B = set(range(len(current_graph_B.vs)))
             for provider_node in self.physical_providers:
                 length_to_provider_in_network_B = current_graph_B.shortest_paths(provider_node)[0]
-                zipped_list_B = zip(length_to_provider_in_network_B,range(len(current_graph_B)))
+                zipped_list_B = zip(length_to_provider_in_network_B,range(len(current_graph_B.vs)))
                 current_nodes_without_connection_to_provider_in_B = \
-                    set([a[1] for a in zipped_list_B if not a[0]==float('inf')])
+                    set([a[1] for a in zipped_list_B if a[0]==float('inf')])
                 nodes_without_connection_to_provider_in_B = \
                     nodes_without_connection_to_provider_in_B\
                         .intersection(current_nodes_without_connection_to_provider_in_B)
+            names_of_nodes_lost_in_A = set(current_graph_A.vs(list(nodes_without_connection_to_provider_in_A))['name'])
+            names_of_nodes_lost_in_B = set(current_graph_B.vs(list(nodes_without_connection_to_provider_in_B))['name'])
 
             current_graph_A.delete_vertices(nodes_without_connection_to_provider_in_A)
             current_graph_B.delete_vertices(nodes_without_connection_to_provider_in_B)
-            current_interaction_graph.delete_vertices(nodes_without_connection_to_provider_in_A+
-                                                      nodes_without_connection_to_provider_in_B)
+            nodes_to_delete = list(names_of_nodes_lost_in_A.union(names_of_nodes_lost_in_B))
+            current_interaction_graph.delete_vertices([n for n in nodes_to_delete if n in current_interaction_graph.vs['name']])
 
-            zipped_list_interactions = zip(current_interaction_graph.degree(),current_interaction_graph['name'])
+            zipped_list_interactions = zip(current_interaction_graph.degree(),current_interaction_graph.vs['name'])
             list_of_nodes_to_delete = [a[1] for a in zipped_list_interactions if a[0] < 1]
 
         return self
@@ -122,6 +135,8 @@ class InterdependentGraph(object):
         functional_nodes_in_AS_net = len([a for a in self.AS_network.vs if self.AS_network.degree(a.index) > 0])
         return (functional_nodes_in_AS_net*1.0)/(self.initial_number_of_functional_nodes_in_AS_net*1.0)
 
+    def node_mtfr(self):
+        return len((self.interactions_network.maximum_bipartite_matching()).edges())
 
 
 
