@@ -82,6 +82,7 @@ class InterdependentGraph(object):
                 type_list.append(0)
             elif node['name'] in physical_net_name_list:
                 type_list.append(1)
+        self.interactions_network.vs['type'] = type_list
         # save provider nodes
         self.AS_providers = AS_provider_nodes
         self.physical_providers = physical_provider_nodes
@@ -96,14 +97,17 @@ class InterdependentGraph(object):
         current_interaction_graph = self.interactions_network
 
         while True:
+            # if there are no more nodes to delete, i.e, the network has stabilized, then stop
             if len(list_of_nodes_to_delete) == 0:
                 break
+            # Delete the nodes to delete on each network, including the interactions network
             nodes_to_delete_in_A = [node for node in list_of_nodes_to_delete if node in current_graph_A.vs['name']]
             nodes_to_delete_in_B = [node for node in list_of_nodes_to_delete if node in current_graph_B.vs['name']]
             current_graph_A.delete_vertices(nodes_to_delete_in_A)
             current_graph_B.delete_vertices(nodes_to_delete_in_B)
             current_interaction_graph.delete_vertices([n for n in list_of_nodes_to_delete if n in current_interaction_graph.vs['name']])
 
+            # Determine all nodes that fail because they don't have connection to a provider
             nodes_without_connection_to_provider_in_A = set(range(len(current_graph_A.vs)))
             alive_nodes_in_A = current_graph_A.vs['name']
             for provider_node in self.AS_providers:
@@ -131,15 +135,18 @@ class InterdependentGraph(object):
                 nodes_without_connection_to_provider_in_B = \
                     nodes_without_connection_to_provider_in_B\
                         .intersection(current_nodes_without_connection_to_provider_in_B)
+            # save the names (unique identifier) of the nodes lost because can't access a provider
             names_of_nodes_lost_in_A = set(current_graph_A.vs(list(nodes_without_connection_to_provider_in_A))['name'])
             names_of_nodes_lost_in_B = set(current_graph_B.vs(list(nodes_without_connection_to_provider_in_B))['name'])
-
+            # Delete all nodes that fail because they don't have connection to a provider on each network including
+            # interactions network
             current_graph_A.delete_vertices(nodes_without_connection_to_provider_in_A)
             current_graph_B.delete_vertices(nodes_without_connection_to_provider_in_B)
             nodes_to_delete = list(names_of_nodes_lost_in_A.union(names_of_nodes_lost_in_B))
             current_interaction_graph.delete_vertices([n for n in nodes_to_delete if n in current_interaction_graph.vs['name']])
-
+            # Get the nodes lost because they have lost all support from the other network
             zipped_list_interactions = zip(current_interaction_graph.degree(),current_interaction_graph.vs['name'])
+            # Add them to the nodes to delete on the next iteration
             list_of_nodes_to_delete = [a[1] for a in zipped_list_interactions if a[0] < 1]
 
         return self
